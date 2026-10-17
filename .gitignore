@@ -1,0 +1,33 @@
+# 环境与构建
+.venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+*.egg-info/
+.DS_Store
+# 身份、凭据、运行状态和音频
+.env
+.env.*
+!.env.example
+identity.json
+*identity*.json
+.runtime/
+private/
+state/
+recordings/
+logs/
+*.log
+*.pem
+*.key
+*.db
+*.sqlite*
+*.pcap*
+*.mp3
+*.m4a
+*.wav
+*.qta
+*.apk
+*.i64
