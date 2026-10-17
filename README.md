@@ -5,6 +5,8 @@
 ## 安装与使用
 
 ```sh
+git clone https://github.com/jonah3389/oconnect-client.git
+cd oconnect-client
 python3.12 -m venv .venv
 source .venv/bin/activate
 python -m pip install -e .
