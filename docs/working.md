@@ -4,6 +4,7 @@
 
 ### 2026-10-18
 
+- README 补充三份互联研究 APK 的应用名、包名、versionName 和 versionCode；使用 `aapt dump xmltree` 直接核验原始 APK 的 AndroidManifest.xml，未纳入 APK 或反编译产物。
 - 修复新手表录音漏同步：音频分类查询依赖媒体索引，实机出现分类返回零条而手表目录实际有录音的情况。改用 `file.list.search` 递归读取固定手表目录。
 - 兼容目录接口的 `statusCode=200` 成功响应；错误信息优先显示业务失败原因。
 - 目录条目没有媒体库 ID，下载时生成临时 ID 与文件路径映射，沿用已认证的媒体下载通道。

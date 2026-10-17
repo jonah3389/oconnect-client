@@ -22,6 +22,18 @@ oconnect-client --identity ./private/identity.json --host 192.0.2.1 watch --outp
 
 输出只包含 `Music/Recordings/Watch Recordings/` 下的录音；目录保留手表子目录。未指定输出时保存到用户主目录 `Recordings/OPPO/`。运行状态默认保存在用户主目录 `.oconnect_client/state/`，可用 `--state-dir` 改写。
 
+## 互联协议研究所用 APK
+
+以下为本项目研究时使用的手机端 APK 样本，包名、版本号和版本代码均从各 APK 的 `AndroidManifest.xml` 核实。
+
+| APK 文件 | 应用名称 | 包名 | 版本号（versionName） | 版本代码（versionCode） |
+| --- | --- | --- | --- | --- |
+| `AccessoryFramework.apk` | 设备快连 | `com.heytap.accessory` | `17.6.16` | `170060016` |
+| `DSF.apk` | DSF | `com.oplus.ndsf` | `17.3.0` | `1700030000` |
+| `OShare.apk` | OPPO 互传 | `com.coloros.oshare` | `17.2.36` | `17002036` |
+
+这些版本用于记录研究样本，不代表其他版本已经通过兼容性验证。APK 原件及反编译产物保留在本地研究目录，不随源码或发行包分发。
+
 ## 开发与验证
 
 ```sh
