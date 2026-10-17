@@ -152,9 +152,7 @@ class RetryTests(unittest.TestCase):
                 patch("oconnect_client.media.http.client.HTTPSConnection", Connection),
                 patch("oconnect_client.media.time.sleep"),
             ):
-                digest = download_media(
-                    Client(), {"fileId": "1", "filePath": "/a.mp3", "fileSize": 8}, target
-                )
+                digest = download_media(Client(), {"filePath": "/a.mp3", "fileSize": 8}, target)
             self.assertEqual(target.read_bytes(), b"abcdefgh")
             self.assertEqual(digest, hashlib.sha256(b"abcdefgh").hexdigest())
             self.assertEqual(ranges, ["bytes=0-", "bytes=4-", "bytes=4-"])

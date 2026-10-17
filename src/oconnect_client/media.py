@@ -9,6 +9,7 @@ import re
 import ssl
 import tempfile
 import time
+import uuid
 from pathlib import Path
 from urllib.parse import urlencode
 
@@ -35,7 +36,8 @@ def sha256_file(path):
 
 def download_media(client, row, destination, *, delay_between_ranges=0):
     """原子保存原始录音；Range 每次校验，短暂断线从已完成的段继续。"""
-    video_id = str(row["fileId"])
+    # 目录查询没有媒体库 fileId；服务只要求非空 ID，用于本次路径映射。
+    video_id = str(row.get("fileId") or uuid.uuid4().hex)
     reply = client.call("video.request", {"videoId": video_id, "videoPath": row["filePath"]})
     config = reply["result"]
     if "data" in config:

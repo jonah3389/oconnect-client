@@ -174,27 +174,28 @@ class ConnectClient:
         while time.monotonic() < deadline:
             obj = self.read_object(max(0.1, deadline - time.monotonic()))
             if obj.get("sessionId") == session_id:
-                if obj.get("statusCode", 0) != 0 or obj.get("result", {}).get("code", 200) != 200:
-                    raise RuntimeError(f"{api} 返回失败：{obj.get('statusDesc')}")
+                result = obj.get("result", {})
+                if obj.get("statusCode", 0) not in (0, 200) or result.get("code", 200) != 200:
+                    reason = result.get("description") or obj.get("statusDesc")
+                    raise RuntimeError(f"{api} 返回失败：{reason}")
                 return obj
         raise TimeoutError(f"{api} 未返回响应")
 
     def list_watch(self):
-        rows, page = ([], 1)
-        while True:
-            obj = self.call(
-                "file.category.query",
-                dict(categoryId=2, pageNo=page, pageSize=500, sortOrder="DEFAULT"),
-            )
-            data = obj["result"]["data"]
-            batch = data["result"]
-            rows.extend(batch)
-            if len(rows) >= data["total"] or not batch:
-                break
-            page += 1
-            if page > 100:
-                raise ValueError("音频列表分页超过上限")
-        return [r for r in rows if "/Music/Recordings/Watch Recordings/" in r.get("filePath", "")]
+        # 分类列表依赖手机媒体索引；新录音可能已落盘但尚未进入索引。
+        root = "/storage/emulated/0/Music/Recordings/Watch Recordings"
+        obj = self.call("file.list.search", {"filePath": [root], "folder": False, "transfer": True})
+        listing = obj["result"]["result"]
+        if isinstance(listing, str):
+            listing = json.loads(listing)
+        rows = listing[root]
+        return [
+            row
+            for row in rows
+            if row.get("filePath", "").startswith(root + "/")
+            and Path(row["filePath"]).suffix.lower()
+            in (".mp3", ".m4a", ".qta", ".wav", ".aac", ".ogg", ".flac")
+        ]
 
     def download(self, row, destination):
         return download_media(self, row, destination)
