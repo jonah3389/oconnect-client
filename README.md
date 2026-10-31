@@ -13,6 +13,8 @@
 
 手机与电脑需要处于可互访的同一局域网。以下使用 Python 3.12；只有首次配对需要手动指定手机当前 IP。
 
+建议在信任的 WiFi 环境里做成定时任务，自动化无感同步。
+
 ```sh
 git clone https://github.com/jonah3389/oconnect-client.git
 cd oconnect-client
