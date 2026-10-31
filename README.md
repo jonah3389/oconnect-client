@@ -1,8 +1,17 @@
 # oconnect-client
 
-使用每台电脑自己生成的身份，通过局域网自动采集手机中的 OPPO 手表录音。电脑端无需安装或登录 O+ Connect，手机端使用系统内置互联服务。首次手机解锁同意，日常可在锁屏状态下增量同步。
+通过同一局域网，将 OPPO 手机中已同步的手表录音增量下载到电脑。首次配对需要在手机上确认；之后无需固定手机 IP，地址变化时会自动重新发现已配对手机，继续使用原配对身份同步。
+
+电脑端无需安装或登录 O+ Connect，手机端使用系统内置互联服务。每台电脑在本机生成自己的身份，手机源文件始终保留。
+
+- **免填 IP**：缓存地址失效后，先通过 OPPO 原生组播查询发现手机，再用受限子网单播查询兜底。
+- **配对与地址分开保存**：按设备 ID 选择密钥，完成认证后才记住新地址；发现其他 OPPO 手机不会自动配对。
+- **增量下载**：保留手表子目录，按文件路径、大小和本地 SHA-256 检查点跳过已下载内容，完整文件校验通过后才落盘。
+- **手动或持续同步**：可单次运行，也可在终端保持轮询；不会自行安装开机启动或定时任务。
 
 ## 安装与使用
+
+手机与电脑需要处于可互访的同一局域网。以下使用 Python 3.12；只有首次配对需要手动指定手机当前 IP。
 
 ```sh
 git clone https://github.com/jonah3389/oconnect-client.git
@@ -14,7 +23,9 @@ python -m pip install -e .
 oconnect-client --identity ./private/identity.json init --name '我的录音电脑'
 # 将文档测试地址替换为手机真实 Wi-Fi 地址；首次在手机上同意连接
 oconnect-client --identity ./private/identity.json --host 192.0.2.1 pair
+# 日常同步无需 --host，自动定位已配对手机
 oconnect-client --identity ./private/identity.json sync --output ./recordings
+# 持续运行，每60秒开始下一轮；Ctrl-C停止
 oconnect-client --identity ./private/identity.json watch --output ./recordings --interval 60
 ```
 
@@ -22,7 +33,10 @@ oconnect-client --identity ./private/identity.json watch --output ./recordings -
 
 输出只包含 `Music/Recordings/Watch Recordings/` 下的录音；目录保留手表子目录。未指定输出时保存到用户主目录 `Recordings/OPPO/`。运行状态默认保存在用户主目录 `.oconnect_client/state/`，可用 `--state-dir` 改写。
 
-## IP 自动发现与已配对设备选择
+## 手机 IP 变化时如何继续同步
+
+例如，手机由一个 Wi-Fi 地址换到另一个地址：客户端先尝试上次成功地址；连接或认证失败后，通过原生发现取得候选地址，并用原配对密钥验证。认证成功后保存新地址，再读取录音列表。整个过程无需修改身份文件或重复在手机上授权。
+
 
 日常 `list` / `sync` / `watch` 可省略 `--host`。先尝试认证成功的缓存地址；失效后向 `239.255.255.250:10150/UDP` 发送原生 QUERY，按配对设备 ID 筛选 ANNOUNCE，再用原配对密钥认证。仍无可用连接时，在当前 LAN 的小子网逐地址发送同一 QUERY。使用回复的来源 IP，不使用报文中的虚拟地址。
 
@@ -35,7 +49,7 @@ oconnect-client --identity ./private/identity.json --peer 010203040506 sync
 oconnect-client --identity ./private/identity.json --interface en0 --no-subnet list
 ```
 
-组播发送3轮，间隔200ms；回复使用每次临时绑定的UDP端口，避免占用官方固定端口。子网兜底从真实网卡地址和掩码计算，每个子网总地址数最多256个，约每10ms发送一个查询；更大网段跳过兜底。默认排除常见VPN、隧道、虚拟与回环网卡，可用 `--interface` 限定网卡。
+组播发送 3 轮，间隔 200ms；回复使用每次临时绑定的 UDP 端口，避免占用官方固定端口。子网兜底从实际网卡地址和掩码计算，每个子网总地址数最多 256 个，约每 10ms 发送一个查询；更大网段跳过兜底。默认排除常见 VPN、隧道、虚拟与回环网卡，可用 `--interface` 限定网卡。
 
 `--host` 仍可提供优先尝试地址，失败后继续发现；`--port` 仅影响首次 pair 的 SCP 端口，日常文件连接使用 TCP 46888。进度与连接失败原因输出至 stderr，`list` 的 stdout 保持纯 JSON。`watch` 每轮重新获取接口状态，手机离线时保留配对关系并按原间隔重试。
 
@@ -68,13 +82,20 @@ python -m build
 
 ## 验收与边界
 
-独立身份已在开发电脑的隔离代码包中完成手机同意、原始录音下载、锁屏重连及增量去重，文件哈希与先前完整文件一致。新项目的验证记录见 [docs/working.md](docs/working.md)。首次配对沿用已验证的单一反向控制连接，避免同一身份的两条默认连接互相影响。
+0.2.0 已完成以下实机验证：
+
+- 注入失效的旧地址缓存后，通过原生组播找到已配对手机并完成认证。
+- 实际下载录音并校验大小和 SHA-256；第二轮直接命中地址缓存，跳过重复下载。
+- 模拟组播无应答后，通过真实子网单播查询找到手机，完成认证和录音列表读取。
+- 上述日常连接全过程，原身份文件保持不变。
+
+首次手机授权、原始录音下载、锁屏重连也已有实机记录。详细结果与验证方式见 [工作记录](docs/working.md) 和 [测试说明](docs/test.md)。失效缓存与组播无应答采用故障注入，本次未主动改变手机 DHCP 租约。
 
 未完成的实机范围包括第二台实体电脑、Windows、独立身份下的手机重启恢复、过夜省电和真实 DHCP 换址恢复。这里只提供录音访问，不提供投屏、远控或剪贴板；不会安装开机启动服务。
 
-## Privacy
+## 隐私
 
-This repository is designed to be publishable with only fake examples.
+公开项目仅保留示例配置和合成测试数据。
 
 公开源码和测试不包含真实账号、设备身份、录音、官方二进制、抓包或反编译产物。示例中的 `192.0.2.1` 是文档测试地址，不能直接连接真实手机。本项目是独立协议客户端，与相关设备厂商没有隶属关系。
 
