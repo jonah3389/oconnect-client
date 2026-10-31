@@ -95,6 +95,24 @@ def summary(identity):
     }
 
 
+def select_peer(identity, peer_id=None):
+    """用持久设备 ID 选择授权；旧 host 仅供连接时提示，不参与密钥选择。"""
+    peers = identity.get("peers", {})
+    if not peers:
+        raise ValueError("此独立身份尚未获得手机录音访问授权，请先运行 pair")
+    if peer_id is None:
+        if len(peers) != 1:
+            raise ValueError("存在多台已配对手机，请用 --peer 指定目标设备 ID")
+        peer_id = next(iter(peers))
+    peer_id = peer_id.upper()
+    if len(peer_id) != 12 or any(c not in "0123456789ABCDEF" for c in peer_id):
+        raise ValueError("手机设备 ID 必须为 12 位十六进制")
+    matches = [(key, value) for key, value in peers.items() if key.upper() == peer_id]
+    if len(matches) != 1:
+        raise ValueError("指定手机未配对，请先确认目标设备 ID")
+    return peer_id, matches[0][1]
+
+
 def build_banner(identity):
     name = identity["device_name"].encode("utf-8")
     if not 1 <= len(name) <= 255:

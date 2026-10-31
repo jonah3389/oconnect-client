@@ -4,13 +4,13 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "oconnect-client"
-version = "0.1.0"
+version = "0.2.0"
 description = "使用独立电脑身份，通过局域网增量采集 OPPO 手表录音"
 readme = "README.md"
 requires-python = ">=3.12"
 license = "MIT"
 license-files = ["LICENSE"]
-dependencies = ["cryptography==50.0.2"]
+dependencies = ["cryptography==50.0.2", "ifaddr==0.2.0"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10", "ruff>=0.11,<1", "build>=1,<2"]

@@ -234,7 +234,7 @@ class WatchTests(unittest.TestCase):
             with (
                 patch.object(sys, "argv", argv),
                 patch.object(
-                    module, "ConnectClient", side_effect=[ConnectionError("offline"), Client()]
+                    module, "connect_paired", side_effect=[ConnectionError("offline"), Client()]
                 ) as factory,
                 patch.object(module.time, "sleep") as sleep,
             ):
@@ -243,7 +243,7 @@ class WatchTests(unittest.TestCase):
             self.assertEqual(sleep.call_args_list, [unittest.mock.call(5.0)])
             self.assertTrue(
                 all(
-                    not call.kwargs["pairing"] and call.kwargs["identity_path"] is not None
+                    call.args[0] is not None and call.kwargs["host"] == "192.0.2.1"
                     for call in factory.call_args_list
                 )
             )

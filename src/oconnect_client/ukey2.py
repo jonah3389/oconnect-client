@@ -110,13 +110,14 @@ def negotiate_ukey2(host, identity, port=10152):
 class IndependentSecureSession:
     """独立本机身份的 SCP 适配器；不导入或读取官方账号数据库。"""
 
-    def __init__(self, host, identity_path, port=10152):
+    def __init__(self, host, identity_path, port=10152, *, peer_id=None):
         from .identity import ensure_agent_keys
 
         self.identity_path = identity_path
         self.identity = ensure_agent_keys(identity_path)
         self.key_id = "0_" + self.identity["device_id"]
         self.host, self.port = host, port
+        self.peer_id = peer_id
         self.s = None
         from .server import OafpControlServer
 
@@ -128,8 +129,9 @@ class IndependentSecureSession:
         self.session_key = self.handshake.session_key
         self.server_nonce = self.handshake.nonce
         # 对已配对手机复用本机的 KSC/alias；不复用任何其他设备的身份。
-        peers = self.identity.get("peers", {})
-        saved = next((p for p in peers.values() if p.get("host") == self.host), None)
+        from .identity import select_peer
+
+        saved = select_peer(self.identity, self.peer_id)[1] if self.peer_id else None
         self.ksc = bytes.fromhex(saved["local_ksc"]) if saved else os.urandom(16)
         self.ksc_alias = bytes.fromhex(saved["local_alias"]) if saved else os.urandom(6)
         inner = (
@@ -143,6 +145,8 @@ class IndependentSecureSession:
             raise RuntimeError("独立身份 SYNC_SECURE 失败")
         peer = one(body, 2)
         self.peer_dev = one(peer, 1).decode()
+        if self.peer_id and self.peer_dev.upper() != self.peer_id.upper():
+            raise ValueError("手机返回的设备 ID 与指定配对目标不符")
         self.peer_ksc = one(peer, 2)
         self.peer_alias = one(peer, 3)
         if len(self.peer_ksc) != 16 or len(self.peer_alias) != 6:
@@ -183,15 +187,13 @@ class StoredIdentitySession:
 
     s = None
 
-    def __init__(self, host, identity_path):
-        from .identity import ensure_agent_keys
+    def __init__(self, host, identity_path, *, peer_id=None):
+        from .identity import ensure_agent_keys, select_peer
 
         self.identity_path = identity_path
         self.identity = ensure_agent_keys(identity_path)
         self.key_id = "0_" + self.identity["device_id"]
-        peer = next((p for p in self.identity["peers"].values() if p.get("host") == host), None)
-        if peer is None:
-            raise ValueError("此独立身份尚未获得手机录音访问授权，请先运行 pair")
+        self.peer_id, peer = select_peer(self.identity, peer_id)
         self.ksc = bytes.fromhex(peer["local_ksc"])
         self.ksc_alias = bytes.fromhex(peer["local_alias"])
         if len(self.ksc) != 16 or len(self.ksc_alias) != 6:

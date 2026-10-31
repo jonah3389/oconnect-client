@@ -2,11 +2,13 @@
 
 import argparse
 import json
+import sys
 import time
 from pathlib import Path
 
 from . import __version__
 from .client import ConnectClient
+from .connection import connect_paired
 from .identity import create_identity, summary
 from .storage import lock_instance
 from .sync import sync_recordings
@@ -16,8 +18,11 @@ def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--version", action="version", version=__version__)
     parser.add_argument("--identity", type=Path, required=True, help="本机独立身份配置")
-    parser.add_argument("--host", help="手机当前 Wi-Fi IPv4，init 时不需要")
-    parser.add_argument("--port", type=int, default=10152, help="手机 SCP 端口")
+    parser.add_argument("--host", help="优先尝试的手机 IPv4；首次 pair 必填，日常同步可省略")
+    parser.add_argument("--port", type=int, default=10152, help="首次 pair 的手机 SCP 端口")
+    parser.add_argument("--peer", help="已配对手机设备 ID；只有一台时自动选择")
+    parser.add_argument("--interface", help="发现使用的 LAN 网卡名称，如 en0")
+    parser.add_argument("--no-subnet", action="store_true", help="关闭受限子网单播查询兜底")
     parser.add_argument(
         "--state-dir", type=Path, default=Path.home() / ".oconnect_client" / "state"
     )
@@ -44,8 +49,8 @@ def main(argv=None):
             parser.exit(1, f"生成身份失败：{error}\n")
         print(json.dumps(summary(identity), ensure_ascii=False, indent=2))
         return
-    if not args.host:
-        parser.error("此命令需要 --host 指定手机地址")
+    if args.command == "pair" and not args.host:
+        parser.error("首次 pair 需要 --host 指定手机地址")
     if args.command == "pair" and args.hold_seconds < 0:
         parser.error("--hold-seconds 不能为负数")
     if args.command == "sync" and args.limit < 0:
@@ -62,13 +67,27 @@ def main(argv=None):
         while True:
             failed = False
             try:
-                with ConnectClient(
-                    args.host,
-                    args.port,
-                    timeout=90 if args.command == "pair" else 12,
-                    identity_path=args.identity,
-                    pairing=args.command == "pair",
-                ) as client:
+                connection = (
+                    ConnectClient(
+                        args.host,
+                        args.port,
+                        timeout=90,
+                        identity_path=args.identity,
+                        pairing=True,
+                        peer_id=args.peer,
+                    )
+                    if args.command == "pair"
+                    else connect_paired(
+                        args.identity,
+                        args.state_dir,
+                        peer_id=args.peer,
+                        host=args.host,
+                        interface=args.interface,
+                        subnet=not args.no_subnet,
+                        report=lambda message: print(message, file=sys.stderr, flush=True),
+                    )
+                )
+                with connection as client:
                     if args.command == "pair":
                         print("单一反向控制与文件通道已认证；请确认手机显示连接成功。", flush=True)
                         time.sleep(args.hold_seconds)

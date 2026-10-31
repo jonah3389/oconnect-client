@@ -19,10 +19,11 @@ PROFILE = b"app:oshare.mac.agent;"
 
 
 class ConnectClient:
-    def __init__(self, host, port=10152, timeout=12, *, identity_path, pairing=False):
+    def __init__(self, host, port=10152, timeout=12, *, identity_path, pairing=False, peer_id=None):
         self.host, self.port, self.timeout = (host, port, timeout)
         self.identity_path = Path(identity_path)
         self.pairing = pairing
+        self.peer_id = peer_id
         self.secure = self.conn = None
         self.stage = "初始化"
         self.local_agent = 64872
@@ -45,10 +46,12 @@ class ConnectClient:
     def open(self):
         self.stage = "本机身份认证"
         if not self.pairing:
-            self.secure = StoredIdentitySession(self.host, self.identity_path)
+            self.secure = StoredIdentitySession(self.host, self.identity_path, peer_id=self.peer_id)
             self._open_file_channel()
             return
-        self.secure = IndependentSecureSession(self.host, self.identity_path, self.port)
+        self.secure = IndependentSecureSession(
+            self.host, self.identity_path, self.port, peer_id=self.peer_id
+        )
         self.secure.establish()
         self.stage = "手机首次配对确认"
         self.secure.send_enc(b"interact hello", fl=49)
